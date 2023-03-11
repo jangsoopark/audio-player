@@ -584,3 +584,5 @@ FodyWeavers.xsd
 .vscode
 build/
 thirdparty/portaudio
+thirdparty/ffmpeg
+thirdparty/asio

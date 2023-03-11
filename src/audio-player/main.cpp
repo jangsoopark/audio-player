@@ -43,10 +43,22 @@
  * license above.
  */
 
+// #include <boost/asio.hpp>
+#include <portaudio.h>
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "portaudio.h"
+
+#include "format.h"
+
+#ifdef __cplusplus
+extern "C"
+{
+#include <libavcodec/avcodec.h>
+}
+#endif
+
 
 /* #define SAMPLE_RATE  (17932) // Test failure to open with this value. */
 #define SAMPLE_RATE       (44100)
@@ -55,33 +67,7 @@
 /* #define DITHER_FLAG     (paDitherOff)  */
 #define DITHER_FLAG           (0)
 
-/* Select sample format. */
-#if 1
-#define PA_SAMPLE_TYPE  paFloat32
-#define SAMPLE_SIZE (4)
-#define SAMPLE_SILENCE  (0.0f)
-#define PRINTF_S_FORMAT "%.8f"
-#elif 0
-#define PA_SAMPLE_TYPE  paInt16
-#define SAMPLE_SIZE (2)
-#define SAMPLE_SILENCE  (0)
-#define PRINTF_S_FORMAT "%d"
-#elif 0
-#define PA_SAMPLE_TYPE  paInt24
-#define SAMPLE_SIZE (3)
-#define SAMPLE_SILENCE  (0)
-#define PRINTF_S_FORMAT "%d"
-#elif 0
-#define PA_SAMPLE_TYPE  paInt8
-#define SAMPLE_SIZE (1)
-#define SAMPLE_SILENCE  (0)
-#define PRINTF_S_FORMAT "%d"
-#else
-#define PA_SAMPLE_TYPE  paUInt8
-#define SAMPLE_SIZE (1)
-#define SAMPLE_SILENCE  (128)
-#define PRINTF_S_FORMAT "%d"
-#endif
+
 
 /*******************************************************************/
 int main(void)
@@ -89,9 +75,11 @@ int main(void)
     PaStreamParameters inputParameters, outputParameters;
     PaStream *stream = NULL;
     PaError err;
+
     const PaDeviceInfo* inputInfo;
     const PaDeviceInfo* outputInfo;
     char *sampleBlock = NULL;
+
     int i;
     int numBytes;
     int numChannels;
@@ -105,6 +93,7 @@ int main(void)
 
     inputParameters.device = Pa_GetDefaultInputDevice(); /* default input device */
     printf( "Input device # %d.\n", inputParameters.device );
+
     inputInfo = Pa_GetDeviceInfo( inputParameters.device );
     printf( "    Name: %s\n", inputInfo->name );
     printf( "      LL: %g s\n", inputInfo->defaultLowInputLatency );
@@ -112,6 +101,7 @@ int main(void)
 
     outputParameters.device = Pa_GetDefaultOutputDevice(); /* default output device */
     printf( "Output device # %d.\n", outputParameters.device );
+    
     outputInfo = Pa_GetDeviceInfo( outputParameters.device );
     printf( "   Name: %s\n", outputInfo->name );
     printf( "     LL: %g s\n", outputInfo->defaultLowOutputLatency );
