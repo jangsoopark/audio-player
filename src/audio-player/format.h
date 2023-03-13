@@ -3,12 +3,12 @@
 
 
 /* Select sample format. */
-#if 0
+#if 1
 #define PA_SAMPLE_TYPE  paFloat32
 #define SAMPLE_SIZE (4)
 #define SAMPLE_SILENCE  (0.0f)
 #define PRINTF_S_FORMAT "%.8f"
-#elif 1
+#elif 0
 #define PA_SAMPLE_TYPE  paInt16
 #define SAMPLE_SIZE (2)
 #define SAMPLE_SILENCE  (0)

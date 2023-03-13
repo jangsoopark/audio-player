@@ -44,9 +44,11 @@ set(FFMPEG_LIBRARY ${FFMPEG_PATH}/lib)
 include_directories(${FFMPEG_INCLUDE})
 
 
-file(GLOB_RECURSE FFMPEG_SHARED_LIBRARY CMAKE_CONFIGURE_DEPENDS
-    ${FFMPEG_PATH}/bin/*.dll
-)
+if(WIN32)
+    file(GLOB_RECURSE FFMPEG_SHARED_LIBRARY CMAKE_CONFIGURE_DEPENDS
+        ${FFMPEG_PATH}/bin/*.dll
+    )
+endif()
 
 subdirs(thirdparty/portaudio)
 subdirs(thirdparty/asio)

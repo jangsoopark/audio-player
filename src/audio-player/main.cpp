@@ -43,12 +43,11 @@
  * license above.
  */
 
-// #include <boost/asio.hpp>
-#include <portaudio.h>
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
+#include <portaudio.h>
+#include <algorithm>
+
+#include <iostream>
 
 #include "format.h"
 
@@ -63,7 +62,7 @@ extern "C"
 /* #define SAMPLE_RATE  (17932) // Test failure to open with this value. */
 #define SAMPLE_RATE       (44100)
 #define FRAMES_PER_BUFFER   (44100)
-#define NUM_SECONDS          (10)
+#define NUM_SECONDS          (100)
 /* #define DITHER_FLAG     (paDitherOff)  */
 #define DITHER_FLAG           (0)
 
@@ -72,123 +71,96 @@ extern "C"
 /*******************************************************************/
 int main(void)
 {
-    PaStreamParameters inputParameters, outputParameters;
-    PaStream *stream = NULL;
+    PaStreamParameters input_parameters;
+    PaStreamParameters output_parameters;
+    
+    const PaDeviceInfo* input_device_info = nullptr;
+    const PaDeviceInfo* output_device_info = nullptr;
+
+    PaStream* stream = nullptr;
+
     PaError err;
 
-    const PaDeviceInfo* inputInfo;
-    const PaDeviceInfo* outputInfo;
-    char *sampleBlock = NULL;
-
-    int i;
-    int numBytes;
-    int numChannels;
-
-    printf("patest_read_write_wire.c\n"); fflush(stdout);
-    printf("sizeof(int) = %lu\n", sizeof(int)); fflush(stdout);
-    printf("sizeof(long) = %lu\n", sizeof(long)); fflush(stdout);
-
     err = Pa_Initialize();
-    if( err != paNoError ) goto error2;
+    if (err != paNoError)
+        return -1;
 
-    inputParameters.device = Pa_GetDefaultInputDevice(); /* default input device */
-    printf( "Input device # %d.\n", inputParameters.device );
+    // Input Device
+    input_parameters.device = Pa_GetDefaultInputDevice();
+    input_device_info = Pa_GetDeviceInfo(input_parameters.device);
 
-    inputInfo = Pa_GetDeviceInfo( inputParameters.device );
-    printf( "    Name: %s\n", inputInfo->name );
-    printf( "      LL: %g s\n", inputInfo->defaultLowInputLatency );
-    printf( "      HL: %g s\n", inputInfo->defaultHighInputLatency );
+    std::cout << "Input device # " << input_parameters.device << std::endl;
+    std::cout << "\t Name:  " << input_device_info->name << std::endl
+            << "\t LL: " << input_device_info->defaultLowInputLatency << std::endl
+            << "\t HL: " << input_device_info->defaultHighInputLatency << std::endl;
 
-    outputParameters.device = Pa_GetDefaultOutputDevice(); /* default output device */
-    printf( "Output device # %d.\n", outputParameters.device );
-    
-    outputInfo = Pa_GetDeviceInfo( outputParameters.device );
-    printf( "   Name: %s\n", outputInfo->name );
-    printf( "     LL: %g s\n", outputInfo->defaultLowOutputLatency );
-    printf( "     HL: %g s\n", outputInfo->defaultHighOutputLatency );
+    // Output Device
+    output_parameters.device = Pa_GetDefaultOutputDevice();
+    output_device_info = Pa_GetDeviceInfo(output_parameters.device);
 
-    numChannels = inputInfo->maxInputChannels < outputInfo->maxOutputChannels
-            ? inputInfo->maxInputChannels : outputInfo->maxOutputChannels;
-    printf( "Num channels = %d.\n", numChannels );
+    std::cout << "Output device # " << output_parameters.device << std::endl;
+    std::cout << "\t Name:  " << output_device_info->name << std::endl
+            << "\t LL: " << output_device_info->defaultLowOutputLatency << std::endl
+            << "\t HL: " << output_device_info->defaultHighOutputLatency << std::endl;       
 
-    inputParameters.channelCount = numChannels;
-    inputParameters.sampleFormat = PA_SAMPLE_TYPE;
-    inputParameters.suggestedLatency = inputInfo->defaultHighInputLatency ;
-    inputParameters.hostApiSpecificStreamInfo = NULL;
+    int num_channels = std::min(input_device_info->maxInputChannels, output_device_info->maxOutputChannels);
+    std::cout << "Num channels: " << num_channels << std::endl;
 
-    outputParameters.channelCount = numChannels;
-    outputParameters.sampleFormat = PA_SAMPLE_TYPE;
-    outputParameters.suggestedLatency = outputInfo->defaultHighOutputLatency;
-    outputParameters.hostApiSpecificStreamInfo = NULL;
+    // Input Parameter
+    input_parameters.channelCount = num_channels;
+    input_parameters.sampleFormat = PA_SAMPLE_TYPE;
+    input_parameters.suggestedLatency = input_device_info->defaultHighInputLatency;
+    input_parameters.hostApiSpecificStreamInfo = nullptr;
 
-    /* -- setup -- */
+    // Output Parameter
+    output_parameters.channelCount = num_channels;
+    output_parameters.sampleFormat = PA_SAMPLE_TYPE;
+    output_parameters.suggestedLatency = output_device_info->defaultHighInputLatency;
+    output_parameters.hostApiSpecificStreamInfo = nullptr;
 
+    // ????????????????????????????????????????????????????
     err = Pa_OpenStream(
-              &stream,
-              &inputParameters,
-              &outputParameters,
-              SAMPLE_RATE,
-              FRAMES_PER_BUFFER,
-              paClipOff,      /* we won't output out of range samples so don't bother clipping them */
-              NULL, /* no callback, use blocking API */
-              NULL ); /* no callback, so no callback userData */
-    if( err != paNoError ) goto error2;
+        &stream,
+        &input_parameters,
+        &output_parameters,
+        SAMPLE_RATE,
+        FRAMES_PER_BUFFER,
+        paClipOff,
+        nullptr,
+        nullptr
+    );
+    if (err != paNoError)
+        return -1;
 
-    numBytes = FRAMES_PER_BUFFER * numChannels * SAMPLE_SIZE ;
-    sampleBlock = (char *) malloc( numBytes );
-    if( sampleBlock == NULL )
+    int num_bytes = FRAMES_PER_BUFFER * num_channels * SAMPLE_SIZE;
+    char* sample_block = new char [num_bytes];
+    if (!sample_block)
+        return -1;
+
+    memset(sample_block, (int)SAMPLE_SILENCE, num_bytes);
+    err = Pa_StartStream(stream);
+    if (err != paNoError)
+        return -1;
+
+    std::cout << "fdzz" << std::endl;
+
+    // while (true)
+    for(int i=0; i<(NUM_SECONDS*SAMPLE_RATE)/FRAMES_PER_BUFFER; ++i )
     {
-        printf("Could not allocate record array.\n");
-        goto error1;
+        err = Pa_WriteStream(stream, sample_block, FRAMES_PER_BUFFER);
+        if (err)
+            break;
+        err = Pa_ReadStream(stream, sample_block, FRAMES_PER_BUFFER);
+        if (err)
+            break;
     }
-    memset( sampleBlock, SAMPLE_SILENCE, numBytes );
+    err = Pa_StopStream(stream);
+    if (err != paNoError)
+        return -1;
 
-    err = Pa_StartStream( stream );
-    if( err != paNoError ) goto error1;
-    printf("Wire on. Will run %d seconds.\n", NUM_SECONDS); fflush(stdout);
-
-    while(true)
-    // for( i=0; i<(NUM_SECONDS*SAMPLE_RATE)/FRAMES_PER_BUFFER; ++i )
-    {
-        // You may get underruns or overruns if the output is not primed by PortAudio.
-        err = Pa_WriteStream( stream, sampleBlock, FRAMES_PER_BUFFER );
-        if( err ) goto xrun;
-        err = Pa_ReadStream( stream, sampleBlock, FRAMES_PER_BUFFER );
-        if( err ) goto xrun;
-    }
-    printf("Wire off.\n"); fflush(stdout);
-
-    err = Pa_StopStream( stream );
-    if( err != paNoError ) goto error1;
-
-    free( sampleBlock );
-
+    delete [] sample_block;
+    
     Pa_Terminate();
+
     return 0;
-
-xrun:
-    printf("err = %d\n", err); fflush(stdout);
-    if( stream ) {
-        Pa_AbortStream( stream );
-        Pa_CloseStream( stream );
-    }
-    free( sampleBlock );
-    Pa_Terminate();
-    if( err & paInputOverflow )
-        fprintf( stderr, "Input Overflow.\n" );
-    if( err & paOutputUnderflow )
-        fprintf( stderr, "Output Underflow.\n" );
-    return -2;
-error1:
-    free( sampleBlock );
-error2:
-    if( stream ) {
-        Pa_AbortStream( stream );
-        Pa_CloseStream( stream );
-    }
-    Pa_Terminate();
-    fprintf( stderr, "An error occurred while using the portaudio stream\n" );
-    fprintf( stderr, "Error number: %d\n", err );
-    fprintf( stderr, "Error message: %s\n", Pa_GetErrorText( err ) );
-    return -1;
 }
